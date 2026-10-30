@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import { SUPABASE_URL, SUPABASE_KEY } from "./config";
 
 (window as unknown as { __started?: boolean }).__started = true;
 
@@ -26,10 +27,12 @@ window.addEventListener("error", (e) => showError("Erreur de l'application", e.e
 window.addEventListener("unhandledrejection", (e) => showError("Erreur de l'application", e.reason));
 
 async function start() {
-  if (!import.meta.env["VITE_SUPABASE_URL"] || !import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]) {
+  const url = (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) || SUPABASE_URL;
+  const key = (import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string | undefined) || SUPABASE_KEY;
+  if (!url.startsWith("http") || !key.startsWith("sb_") && !key.startsWith("eyJ")) {
     showError(
       "Configuration manquante",
-      "Les clés Supabase n'ont pas été incluses dans l'APK.\nVérifiez les secrets VITE_SUPABASE_URL et VITE_SUPABASE_PUBLISHABLE_KEY dans GitHub (Settings > Secrets and variables > Actions), puis relancez la construction.",
+      "Les clés Supabase ne sont pas renseignées.\nOuvrez le fichier src/config.ts sur GitHub et collez l'adresse du projet et la clé publishable.",
     );
     return;
   }
