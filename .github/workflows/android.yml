@@ -16,7 +16,7 @@ jobs:
           node-version: 20
 
       - name: Installer les dépendances
-        run: npm install
+        run: npm install --legacy-peer-deps --no-audit --no-fund || (rm -rf node_modules package-lock.json && npm install --legacy-peer-deps --no-audit --no-fund --force)
 
       - name: Construire le site
         env:
