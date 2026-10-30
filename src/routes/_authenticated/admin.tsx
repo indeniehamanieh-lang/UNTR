@@ -9,34 +9,48 @@ import { Loading, Empty, ErrorBox, PageHeader } from "@/components/ui-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ContentManager, Alertes, Assistance, MembresAdmin, Dashboard } from "@/components/admin-panels";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Back-office — UNTRTCI" }, { name: "description", content: "Gestion des adhésions, actualités et rôles de l'UNTRTCI." }, { property: "og:title", content: "Back-office — UNTRTCI" }, { property: "og:description", content: "Administration de l'Union." }] }),
+  head: () => ({ meta: [{ title: "Back-office — UNTRTCI" }, { name: "description", content: "Gestion des membres, contenus et rôles de l'UNTRTCI." }, { property: "og:title", content: "Back-office — UNTRTCI" }, { property: "og:description", content: "Administration de l'Union." }] }),
   component: Admin,
 });
+
+type TabKey = "accueil" | "adhesions" | "membres" | "formations" | "evenements" | "offres" | "documents" | "actus" | "alertes" | "assistance" | "roles";
 
 type Status = "en_attente" | "validee" | "refusee" | "suspendue" | "expiree";
 
 function Admin() {
   const { user } = Route.useRouteContext();
   const roles = useRoles(user.id);
-  const [tab, setTab] = useState<"adhesions" | "actus" | "roles">("adhesions");
+  const [tab, setTab] = useState<TabKey>("accueil");
   if (roles.isLoading) return <Loading />;
   if (!roles.data?.isStaff) return <Empty text="Accès réservé à l'équipe de l'Union." />;
   const tabs = [
-    ...(roles.data.isManager ? [{ k: "adhesions", l: "Adhésions" }] : []),
+    ...(roles.data.isManager ? [{ k: "accueil", l: "Tableau de bord" }, { k: "adhesions", l: "Adhésions" }, { k: "membres", l: "Membres" }] : []),
+    { k: "formations", l: "Formations" },
+    { k: "evenements", l: "Événements" },
+    { k: "offres", l: "Offres" },
+    { k: "documents", l: "Documents" },
     { k: "actus", l: "Actualités" },
+    { k: "alertes", l: "Alertes" },
+    ...(roles.data.isManager ? [{ k: "assistance", l: "Assistance" }] : []),
     ...(roles.data.isSuper ? [{ k: "roles", l: "Rôles" }] : []),
-  ] as { k: typeof tab; l: string }[];
+  ] as { k: TabKey; l: string }[];
   const active = tabs.some((t) => t.k === tab) ? tab : (tabs[0]?.k ?? "actus");
   return (
     <div className="space-y-4">
       <Link to="/accueil" className="inline-flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeft className="h-4 w-4" />Retour</Link>
       <PageHeader title="Back-office" />
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {tabs.map((t) => <Button key={t.k} size="sm" variant={active === t.k ? "default" : "outline"} onClick={() => setTab(t.k)}>{t.l}</Button>)}
       </div>
+      {active === "accueil" && <Dashboard />}
       {active === "adhesions" && <Adhesions />}
+      {active === "membres" && <MembresAdmin />}
+      {(active === "formations" || active === "evenements" || active === "offres" || active === "documents") && <ContentManager key={active} cfgKey={active} />}
+      {active === "alertes" && <Alertes />}
+      {active === "assistance" && <Assistance />}
       {active === "actus" && <Actus userId={user.id} />}
       {active === "roles" && <Roles />}
     </div>
