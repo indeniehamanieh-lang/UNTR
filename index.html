@@ -10,7 +10,15 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><p style="padding:24px;font-family:sans-serif;color:#555">Chargement… (version 3)</p></div>
+    <script>
+      setTimeout(function () {
+        if (!window.__started) {
+          var r = document.getElementById("root");
+          r.innerHTML = '<p style="padding:24px;font-family:sans-serif;color:#b00020"><b>Le démarrage a échoué.</b><br>Le code de l\'application n\'a pas pu s\'exécuter sur ce téléphone.</p>';
+        }
+      }, 5000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

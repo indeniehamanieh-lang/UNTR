@@ -11,5 +11,5 @@ export default defineConfig({
     tailwindcss(),
     tsconfigPaths(),
   ],
-  build: { outDir: "dist" },
+  build: { outDir: "dist", target: "es2020" },
 });
