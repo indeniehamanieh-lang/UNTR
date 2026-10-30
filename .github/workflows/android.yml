@@ -19,16 +19,17 @@ jobs:
         run: npm install --legacy-peer-deps --no-audit --no-fund || (rm -rf node_modules package-lock.json && npm install --legacy-peer-deps --no-audit --no-fund --force)
 
       - name: Construire le site
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ sb_publishable_jtY6qqZkU6-fuC4MKRPr5A_dSkuWfBk }}
-          VITE_PUBLIC_URL: ${{ secrets.VITE_PUBLIC_URL }}
         run: npm run build
 
       - name: Créer le projet Android
         run: |
           npx cap add android
           npx cap sync android
+
+      - name: Mettre l'icône de l'application
+        run: |
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          cp -r resources/android/* android/app/src/main/res/
 
       - uses: actions/setup-java@v4
         with:
