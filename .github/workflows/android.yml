@@ -21,7 +21,7 @@ jobs:
       - name: Construire le site
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ sb_publishable_jtY6qqZkU6-fuC4MKRPr5A_dSkuWfBk }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_PUBLIC_URL: ${{ secrets.VITE_PUBLIC_URL }}
         run: npm run build
 
