@@ -399,7 +399,7 @@ revoke execute on function public.admin_stats() from anon;
 
 -- ===== DONNÉES DE DÉMONSTRATION (is_demo = true) =====
 insert into public.news(title, body, kind, is_demo) values
- ('[DÉMO] Bienvenue sur UNTRTCI Mobile','Ceci est une actualité de démonstration. Les vraies actualités seront publiées par les responsables de l''Union.','annonce',true),
+ ('[DÉMO] Bienvenue sur UNTRTCI','Ceci est une actualité de démonstration. Les vraies actualités seront publiées par les responsables de l''Union.','annonce',true),
  ('[DÉMO] Exemple de communiqué','Texte de démonstration pour illustrer l''affichage d''un communiqué officiel.','communique',true);
 insert into public.events(title, description, location, starts_at, is_demo) values
  ('[DÉMO] Assemblée générale','Événement fictif de démonstration.','Abidjan', now() + interval '30 days', true);
