@@ -1,3 +1,4 @@
+import { SocialLinks, GalleryPreview } from "@/components/social-gallery";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Briefcase, FileText, LifeBuoy, ClipboardList, ShieldCheck, CalendarDays } from "lucide-react";
@@ -9,7 +10,7 @@ import { Loading, Empty, ErrorBox, DemoBadge } from "@/components/ui-states";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/accueil")({
-  head: () => ({ meta: [{ title: "Accueil — UNTRTCI Mobile" }, { name: "description", content: "Actualités, annonces et événements de l'UNTRTCI." }, { property: "og:title", content: "Accueil — UNTRTCI" }, { property: "og:description", content: "Actualités de l'Union." }] }),
+  head: () => ({ meta: [{ title: "Accueil — UNTRTCI" }, { name: "description", content: "Actualités, annonces et événements de l'UNTRTCI." }, { property: "og:title", content: "Accueil — UNTRTCI" }, { property: "og:description", content: "Actualités de l'Union." }] }),
   component: Accueil,
 });
 
@@ -62,7 +63,7 @@ function Accueil() {
         <img src={logo.url} alt="UNTRTCI" className="h-10 w-auto rounded-md" />
         <div className="flex-1">
           <p className="text-xs text-muted-foreground">Bienvenue</p>
-          <p className="font-display font-bold">UNTRTCI Mobile</p>
+          <p className="font-display font-bold">UNTRTCI</p>
         </div>
         {roles.data?.isStaff && (
           <Button asChild size="sm" variant="outline"><Link to="/admin"><ShieldCheck className="h-4 w-4" />Admin</Link></Button>
@@ -105,6 +106,9 @@ function Accueil() {
           </ul>
         )}
       </section>
+
+      <GalleryPreview />
+      <SocialLinks />
 
       <section>
         <h2 className="mb-2 text-lg font-bold">Actualités et communiqués</h2>

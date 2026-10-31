@@ -27,3 +27,38 @@ Le back-office est ensuite accessible depuis l'app.
 
 ## Play Store (plus tard)
 Il faut un compte développeur Google Play (25 $, une fois) et un APK « signé ». Cette étape viendra après les tests : je vous guiderai.
+
+---
+
+# MISE À JOUR 1 — Back-office sur ordinateur + pièces d'identité
+
+## A. Base de données (Supabase)
+SQL Editor → nouvelle requête → collez `supabase/update-1.sql` → Run.
+
+## B. Mettre en ligne le site (back-office)
+1. Mettez les fichiers sur GitHub (Upload files + Commit).
+2. Dépôt → **Settings → Pages** → « Source » : choisissez **GitHub Actions**.
+3. Onglet **Actions** → attendez que « Publier le site back-office » soit vert.
+4. L'adresse du site s'affiche dans Settings → Pages (ex. `https://votrenom.github.io/votre-depot/`).
+5. Sur ordinateur : ouvrez cette adresse → « Se connecter » avec votre compte administrateur. Vous arrivez directement dans le back-office.
+
+Remarque : GitHub Pages est gratuit pour un dépôt public. Pour un dépôt privé, il faut un abonnement GitHub payant.
+
+## C. QR code des cartes
+Une fois l'adresse du site connue, ouvrez `src/config.ts` et remplissez `SITE_URL` avec cette adresse (sans `/` à la fin), puis reconstruisez l'APK.
+
+---
+
+# MISE À JOUR 2 — Métier radio / télévision
+Supabase → SQL Editor → collez `supabase/update-2.sql` → Run (nouvelle liste de spécialités + champ « Employeur / média »).
+
+---
+
+# MISE À JOUR 3 — Mot de passe oublié, réseaux sociaux, galerie
+
+1. Supabase → SQL Editor → collez `supabase/update-3.sql` → Run.
+2. Mot de passe oublié (par code) : Supabase → Authentication → Emails → modèle « Reset password » :
+   remplacez le contenu par un texte contenant le code, par exemple :
+   `<h2>Votre code</h2><p>Code pour changer votre mot de passe : <b>{{ .Token }}</b></p>`
+   puis Save.
+3. Back-office → onglets « Réseaux sociaux » et « Galerie ».

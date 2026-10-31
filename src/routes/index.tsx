@@ -7,9 +7,9 @@ import { useUser } from "@/lib/session";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "UNTRTCI Mobile — Techniciens Radio et TV de Côte d'Ivoire" },
+      { title: "UNTRTCI — Techniciens Radio et TV de Côte d'Ivoire" },
       { name: "description", content: "Adhérez à l'UNTRTCI, obtenez votre carte de membre numérique, suivez les formations et les missions." },
-      { property: "og:title", content: "UNTRTCI Mobile" },
+      { property: "og:title", content: "UNTRTCI" },
       { property: "og:description", content: "L'application officielle des techniciens radio et télévision de Côte d'Ivoire." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -32,7 +32,7 @@ function Landing() {
         <div className="mx-auto w-fit rounded-2xl bg-card p-3 shadow-soft">
           <img src={logo.url} alt="Logo UNTRTCI" className="h-20 w-auto" />
         </div>
-        <h1 className="mt-6 text-center text-3xl font-extrabold">UNTRTCI Mobile</h1>
+        <h1 className="mt-6 text-center text-3xl font-extrabold">UNTRTCI</h1>
         <p className="mt-2 text-center text-sm opacity-90">
           Union Nationale des Techniciens Radio et Télévision de Côte d'Ivoire
         </p>

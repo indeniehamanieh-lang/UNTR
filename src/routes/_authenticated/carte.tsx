@@ -36,7 +36,7 @@ function Carte() {
       </div>
     );
   }
-  const url = `${PUBLIC_URL}/verifier/${d.card_token}`;
+  const url = `${PUBLIC_URL}/#/verifier/${d.card_token}`;
   return (
     <div>
       <PageHeader title="Ma carte" subtitle="Présentez ce QR code pour être vérifié" />

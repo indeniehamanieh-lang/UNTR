@@ -215,6 +215,7 @@ export type Database = {
           user_id: string
           validated_at: string | null
           ville: string
+          employeur: string | null
         }
         Insert: {
           card_revoked?: boolean
@@ -235,6 +236,7 @@ export type Database = {
           user_id: string
           validated_at?: string | null
           ville: string
+          employeur?: string | null
         }
         Update: {
           card_revoked?: boolean
@@ -255,6 +257,7 @@ export type Database = {
           user_id?: string
           validated_at?: string | null
           ville?: string
+          employeur?: string | null
         }
         Relationships: []
       }

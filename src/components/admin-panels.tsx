@@ -7,6 +7,8 @@ import { Loading, Empty, ErrorBox } from "@/components/ui-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { shrinkImage } from "@/lib/image";
+import { galleryUrl } from "@/components/social-gallery";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -16,7 +18,7 @@ const db = supabase as any;
 type Field = { key: string; label: string; type?: "text" | "textarea" | "datetime" | "number" | "select"; options?: string[]; required?: boolean };
 
 export type ContentConfig = {
-  table: "trainings" | "events" | "jobs" | "documents";
+  table: "trainings" | "events" | "jobs" | "documents" | "social_links";
   singular: string;
   empty: string;
   fields: Field[];
@@ -24,6 +26,15 @@ export type ContentConfig = {
 };
 
 export const CONTENT: Record<string, ContentConfig> = {
+  reseaux: {
+    table: "social_links", singular: "réseau social", empty: "Aucun réseau social.",
+    fields: [
+      { key: "title", label: "Nom affiché (ex. UNTRTCI officiel)", required: true },
+      { key: "platform", label: "Réseau", type: "select", options: ["facebook", "whatsapp", "youtube", "tiktok", "instagram", "x", "linkedin", "site", "autre"] },
+      { key: "url", label: "Lien (https://…)", required: true },
+    ],
+    subtitle: (r) => `${r["platform"] as string} · ${r["url"] as string}`,
+  },
   formations: {
     table: "trainings", singular: "formation", empty: "Aucune formation.",
     fields: [
@@ -99,7 +110,7 @@ export function ContentManager({ cfgKey }: { cfgKey: string }) {
       else if (x.key === "contact") p[x.key] = v || null;
       else p[x.key] = v;
     }
-    if (cfg.table === "documents" && !/^https?:\/\//i.test(String(p["url"]))) throw new Error("Le lien doit commencer par https://");
+    if ((cfg.table === "documents" || cfg.table === "social_links") && !/^https?:\/\//i.test(String(p["url"]))) throw new Error("Le lien doit commencer par https://");
     return p;
   }
 
@@ -274,7 +285,7 @@ export function Assistance() {
 
 /* ---------- Membres : liste complète, recherche, export ---------- */
 
-type Mem = { id: string; nom: string; prenoms: string; telephone: string; ville: string; specialites: string[]; status: string; member_number: string | null; created_at: string };
+type Mem = { id: string; user_id: string; photo_url: string | null; nom: string; prenoms: string; telephone: string; ville: string; employeur: string | null; specialites: string[]; status: string; member_number: string | null; created_at: string };
 
 export function MembresAdmin() {
   const [search, setSearch] = useState("");
@@ -286,12 +297,12 @@ export function MembresAdmin() {
       return data as Mem[];
     },
   });
-  const rows = (q.data ?? []).filter((m) => `${m.nom} ${m.prenoms} ${m.ville} ${m.telephone} ${m.member_number ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+  const rows = (q.data ?? []).filter((m) => `${m.nom} ${m.prenoms} ${m.ville} ${m.employeur ?? ""} ${m.telephone} ${m.member_number ?? ""}`.toLowerCase().includes(search.toLowerCase()));
 
   function csv() {
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-    const head = ["N° membre", "Nom", "Prénoms", "Téléphone", "Ville", "Spécialités", "Statut", "Date"];
-    const lines = rows.map((m) => [m.member_number ?? "", m.nom, m.prenoms, m.telephone, m.ville, m.specialites.join("; "), STATUS_LABEL[m.status as keyof typeof STATUS_LABEL] ?? m.status, fmtDate(m.created_at)].map((x) => esc(String(x))).join(","));
+    const head = ["N° membre", "Nom", "Prénoms", "Téléphone", "Ville", "Employeur", "Spécialités", "Statut", "Date"];
+    const lines = rows.map((m) => [m.member_number ?? "", m.nom, m.prenoms, m.telephone, m.ville, m.employeur ?? "", m.specialites.join("; "), STATUS_LABEL[m.status as keyof typeof STATUS_LABEL] ?? m.status, fmtDate(m.created_at)].map((x) => esc(String(x))).join(","));
     return [head.map(esc).join(","), ...lines].join("\n");
   }
   async function copy() {
@@ -317,6 +328,7 @@ export function MembresAdmin() {
             <li key={m.id} className="rounded-xl border bg-card p-3">
               <p className="font-semibold">{m.prenoms} {m.nom} {m.member_number && <span className="text-xs text-muted-foreground">· {m.member_number}</span>}</p>
               <p className="text-sm text-muted-foreground">{m.ville} · {m.telephone} · {STATUS_LABEL[m.status as keyof typeof STATUS_LABEL] ?? m.status}</p>
+              <DossierFiles userId={m.user_id} photoUrl={m.photo_url} />
             </li>
           ))}
         </ul>
@@ -363,6 +375,126 @@ export function Dashboard() {
       {cards.map(([l, n]) => (
         <div key={l} className="rounded-xl border bg-card p-4"><p className="text-2xl font-bold">{n}</p><p className="text-xs text-muted-foreground">{l}</p></div>
       ))}
+    </div>
+  );
+}
+
+/* ---------- Photo et pièces d'identité d'un dossier ---------- */
+
+export function DossierFiles({ userId, photoUrl }: { userId: string; photoUrl: string | null }) {
+  const [open, setOpen] = useState(false);
+  const q = useQuery({
+    queryKey: ["dossier-files", userId, open],
+    enabled: open,
+    queryFn: async () => {
+      const out: { label: string; url: string; image: boolean }[] = [];
+      if (photoUrl) {
+        const r = await supabase.storage.from("member-photos").createSignedUrl(photoUrl, 600);
+        if (r.data?.signedUrl) out.push({ label: "Photo", url: r.data.signedUrl, image: true });
+      }
+      const docs = await db.from("member_documents").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+      const names: Record<string, string> = { cni: "Carte d'identité", passeport: "Passeport", permis: "Permis", autre: "Autre pièce" };
+      for (const d of (docs.data ?? []) as { kind: string; path: string }[]) {
+        const r = await supabase.storage.from("id-documents").createSignedUrl(d.path, 300);
+        if (r.data?.signedUrl) out.push({ label: names[d.kind] ?? d.kind, url: r.data.signedUrl, image: !d.path.toLowerCase().endsWith(".pdf") });
+      }
+      if ((docs.data ?? []).length > 0) await db.rpc("log_document_view", { _member: userId });
+      return out;
+    },
+  });
+  return (
+    <div className="mt-2">
+      {!open ? (
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Voir photo et pièces</Button>
+      ) : q.isLoading ? <Loading /> : q.error ? <ErrorBox error={q.error} /> : q.data!.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Aucun fichier envoyé.</p>
+      ) : (
+        <div className="flex flex-wrap gap-3">
+          {q.data!.map((f) => (
+            <a key={f.url} href={f.url} target="_blank" rel="noreferrer" className="block w-40 text-center text-xs">
+              {f.image ? <img src={f.url} alt={f.label} className="h-28 w-40 rounded-lg border object-cover" /> : <div className="flex h-28 w-40 items-center justify-center rounded-lg border bg-secondary">PDF</div>}
+              <span className="mt-1 block">{f.label}</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Galerie : photos des activités ---------- */
+
+type GItem = { id: string; title: string; caption: string | null; taken_on: string | null; image_path: string };
+
+export function GalerieAdmin() {
+  const qc = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const q = useQuery({
+    queryKey: ["admin-gallery"],
+    queryFn: async () => {
+      const { data, error } = await db.from("gallery_items").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as GItem[];
+    },
+  });
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) { toast.error("Donnez un titre à l'activité"); return; }
+    if (files.length === 0) { toast.error("Choisissez au moins une photo"); return; }
+    setBusy(true);
+    try {
+      let n = 0;
+      for (const f of files) {
+        const img = await shrinkImage(f, 1600, 0.8);
+        const path = `${Date.now()}-${n}.${img.name.split(".").pop() ?? "jpg"}`;
+        const up = await supabase.storage.from("gallery").upload(path, img);
+        if (up.error) throw up.error;
+        const r = await db.from("gallery_items").insert({ title: title.trim(), taken_on: date || null, image_path: path });
+        if (r.error) throw r.error;
+        n++;
+      }
+      toast.success(`${n} photo(s) ajoutée(s)`);
+      setTitle(""); setDate(""); setFiles([]);
+      qc.invalidateQueries({ queryKey: ["admin-gallery"] });
+      qc.invalidateQueries({ queryKey: ["gallery-preview"] });
+      qc.invalidateQueries({ queryKey: ["gallery-all"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur d'envoi");
+    } finally { setBusy(false); }
+  }
+  async function remove(i: GItem) {
+    if (!confirm("Supprimer cette photo ?")) return;
+    const r = await db.from("gallery_items").delete().eq("id", i.id);
+    if (r.error) { toast.error(r.error.message); return; }
+    await supabase.storage.from("gallery").remove([i.image_path]);
+    qc.invalidateQueries({ queryKey: ["admin-gallery"] });
+    qc.invalidateQueries({ queryKey: ["gallery-preview"] });
+    qc.invalidateQueries({ queryKey: ["gallery-all"] });
+  }
+  return (
+    <div className="space-y-3">
+      <form onSubmit={add} className="space-y-2 rounded-xl border bg-card p-4">
+        <p className="font-semibold">Ajouter des photos d'une activité</p>
+        <Input placeholder="Titre de l'activité (ex. Formation régie, Assemblée 2026)" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <Input type="file" accept="image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
+        {files.length > 0 && <p className="text-xs text-primary">{files.length} photo(s) choisie(s)</p>}
+        <Button size="sm" disabled={busy}>{busy ? "Envoi en cours…" : "Ajouter"}</Button>
+      </form>
+      {q.isLoading ? <Loading /> : q.error ? <ErrorBox error={q.error} /> : q.data!.length === 0 ? <Empty text="Aucune photo." /> : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {q.data!.map((i) => (
+            <li key={i.id} className="rounded-xl border bg-card p-2">
+              <img src={galleryUrl(i.image_path)} alt={i.title} loading="lazy" className="aspect-square w-full rounded-lg object-cover" />
+              <p className="mt-1 text-xs font-medium">{i.title}</p>
+              <Button size="sm" variant="ghost" onClick={() => remove(i)}>Supprimer</Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
