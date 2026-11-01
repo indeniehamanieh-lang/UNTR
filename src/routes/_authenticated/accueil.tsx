@@ -2,9 +2,9 @@ import { IS_APP } from "@/lib/target";
 import { SocialLinks, GalleryPreview } from "@/components/social-gallery";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, Briefcase, FileText, LifeBuoy, ClipboardList, ShieldCheck, CalendarDays } from "lucide-react";
+import { BadgeCheck, Briefcase, FileText, LifeBuoy, ClipboardList, ShieldCheck, CalendarDays, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import logo from "@/assets/untrtci-logo.jpg.asset.json";
+import logo from "@/assets/untrtci-icon.asset.json";
 import { supabase } from "@/integrations/supabase/client";
 import { useMembership, useRoles, STATUS_LABEL, fmtDate } from "@/lib/session";
 import { Loading, Empty, ErrorBox, DemoBadge } from "@/components/ui-states";
@@ -53,6 +53,7 @@ function Accueil() {
   const quick = [
     { to: "/carte", label: "Ma carte", icon: BadgeCheck },
     { to: "/adhesion", label: "Adhésion", icon: ClipboardList },
+    { to: "/cotisation", label: "Cotisation", icon: Wallet },
     { to: "/offres", label: "Offres", icon: Briefcase },
     { to: "/documents", label: "Documents", icon: FileText },
     { to: "/assistance", label: "Assistance", icon: LifeBuoy },
@@ -81,7 +82,7 @@ function Accueil() {
         </p>
       </Link>
 
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {quick.map((q) => (
           <Link key={q.to} to={q.to} className="flex flex-col items-center gap-1 rounded-xl bg-card p-2 text-center text-[11px] font-medium shadow-sm">
             <span className="rounded-lg bg-secondary p-2 text-primary"><q.icon className="h-5 w-5" /></span>

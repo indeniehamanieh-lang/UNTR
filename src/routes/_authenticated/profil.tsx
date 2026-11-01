@@ -80,7 +80,7 @@ function Profil() {
         <div className="space-y-1.5"><Label>Nouveau mot de passe</Label><Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} /></div>
         <Button size="sm" variant="outline">Modifier</Button>
       </form>
-      {roles.data && !roles.data.isSuper && (
+      {roles.data && !roles.data.isSuper && !IS_APP && (
         <button onClick={claimAdmin} className="w-full text-center text-xs text-muted-foreground underline">Configuration initiale : devenir le premier super administrateur</button>
       )}
       <Button variant="destructive" className="w-full" onClick={logout}><LogOut className="h-4 w-4" />Se déconnecter</Button>

@@ -18,7 +18,7 @@ const db = supabase as any;
 type Field = { key: string; label: string; type?: "text" | "textarea" | "datetime" | "number" | "select"; options?: string[]; required?: boolean };
 
 export type ContentConfig = {
-  table: "trainings" | "events" | "jobs" | "documents" | "social_links";
+  table: "trainings" | "events" | "jobs" | "documents" | "social_links" | "payment_methods";
   singular: string;
   empty: string;
   fields: Field[];
@@ -26,6 +26,16 @@ export type ContentConfig = {
 };
 
 export const CONTENT: Record<string, ContentConfig> = {
+  moyens: {
+    table: "payment_methods", singular: "numéro de paiement", empty: "Aucun numéro de paiement.",
+    fields: [
+      { key: "title", label: "Nom affiché (ex. Wave UNTRTCI)", required: true },
+      { key: "provider", label: "Opérateur", type: "select", options: ["wave", "orange", "mtn", "moov", "autre"] },
+      { key: "number", label: "Numéro (ex. 07 00 00 00 00)", required: true },
+      { key: "holder", label: "Nom du titulaire du compte" },
+    ],
+    subtitle: (r) => `${r["provider"] as string} · ${r["number"] as string}`,
+  },
   reseaux: {
     table: "social_links", singular: "réseau social", empty: "Aucun réseau social.",
     fields: [
@@ -495,6 +505,113 @@ export function GalerieAdmin() {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/* ---------- Cotisations : réglages et validation des paiements ---------- */
+
+type PayRow = { id: string; user_id: string; amount_xof: number; provider: string; reference: string; proof_path: string | null; status: string; note: string | null; created_at: string };
+
+export function CotisationsAdmin() {
+  const qc = useQueryClient();
+  const [filter, setFilter] = useState("en_attente");
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [amount, setAmount] = useState("");
+  const [months, setMonths] = useState("");
+  const [instr, setInstr] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  useQuery({
+    queryKey: ["admin-pay-settings"],
+    queryFn: async () => {
+      const { data, error } = await db.from("payment_settings").select("*").eq("id", 1).maybeSingle();
+      if (error) throw error;
+      if (data && !loaded) { setAmount(String(data.amount_xof)); setMonths(String(data.duration_months)); setInstr(data.instructions ?? ""); setLoaded(true); }
+      return data;
+    },
+  });
+  async function saveSettings(e: React.FormEvent) {
+    e.preventDefault();
+    const a = Number(amount), m = Number(months);
+    if (!Number.isFinite(a) || a < 0 || !Number.isFinite(m) || m < 1) { toast.error("Montant ou durée invalide"); return; }
+    const { error } = await db.from("payment_settings").upsert({ id: 1, amount_xof: Math.round(a), duration_months: Math.round(m), instructions: instr.trim() || null, updated_at: new Date().toISOString() });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Réglages enregistrés");
+    qc.invalidateQueries({ queryKey: ["cotisation-info"] });
+  }
+
+  const q = useQuery({
+    queryKey: ["admin-payments", filter],
+    queryFn: async () => {
+      const { data, error } = await db.from("payments").select("*").eq("status", filter).order("created_at", { ascending: false });
+      if (error) throw error;
+      const rows = data as PayRow[];
+      const ids = [...new Set(rows.map((r) => r.user_id))];
+      const names: Record<string, string> = {};
+      if (ids.length) {
+        const m = await db.from("memberships").select("user_id, nom, prenoms, telephone").in("user_id", ids);
+        for (const x of (m.data ?? []) as { user_id: string; nom: string; prenoms: string; telephone: string }[]) names[x.user_id] = `${x.prenoms} ${x.nom} · ${x.telephone}`;
+      }
+      return rows.map((r) => ({ ...r, who: names[r.user_id] ?? "Membre sans dossier" }));
+    },
+  });
+  async function review(id: string, status: "validee" | "refusee") {
+    const { error } = await db.rpc("review_payment", { _id: id, _status: status, _note: (notes[id] ?? "").trim() || null });
+    if (error) { toast.error(error.message); return; }
+    toast.success(status === "validee" ? "Paiement validé" : "Paiement refusé");
+    qc.invalidateQueries({ queryKey: ["admin-payments"] });
+  }
+  async function openProof(path: string) {
+    const r = await supabase.storage.from("payment-proofs").createSignedUrl(path, 300);
+    if (r.data?.signedUrl) window.open(r.data.signedUrl, "_blank", "noopener");
+    else toast.error("Justificatif introuvable");
+  }
+  const labels: Record<string, string> = { en_attente: "À vérifier", validee: "Validés", refusee: "Refusés" };
+  return (
+    <div className="space-y-6">
+      <section className="space-y-2">
+        <h2 className="text-lg font-bold">Paiements des membres</h2>
+        <div className="flex gap-1">{Object.keys(labels).map((k) => <Button key={k} size="sm" variant={filter === k ? "secondary" : "ghost"} onClick={() => setFilter(k)}>{labels[k]}</Button>)}</div>
+        {q.isLoading ? <Loading /> : q.error ? <ErrorBox error={q.error} /> : q.data!.length === 0 ? <Empty text="Aucun paiement." /> : (
+          <ul className="space-y-2">
+            {q.data!.map((p) => (
+              <li key={p.id} className="space-y-2 rounded-xl border bg-card p-4">
+                <p className="font-semibold">{p.who}</p>
+                <p className="text-sm">{p.amount_xof.toLocaleString("fr-FR")} FCFA · {p.provider} · Réf. <b>{p.reference}</b></p>
+                <p className="text-xs text-muted-foreground">Déclaré le {fmtDate(p.created_at)}</p>
+                {p.proof_path && <Button size="sm" variant="outline" onClick={() => openProof(p.proof_path!)}>Voir la capture</Button>}
+                {p.status === "en_attente" && (
+                  <>
+                    <Input placeholder="Motif en cas de refus (facultatif)" value={notes[p.id] ?? ""} onChange={(e) => setNotes({ ...notes, [p.id]: e.target.value })} />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => review(p.id, "validee")}>Valider</Button>
+                      <Button size="sm" variant="outline" onClick={() => review(p.id, "refusee")}>Refuser</Button>
+                    </div>
+                  </>
+                )}
+                {p.note && <p className="text-xs">Note : {p.note}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-lg font-bold">Montant de la cotisation</h2>
+        <form onSubmit={saveSettings} className="space-y-2 rounded-xl border bg-card p-4">
+          <label className="text-xs text-muted-foreground">Montant en FCFA</label>
+          <Input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <label className="text-xs text-muted-foreground">Durée de validité (en mois)</label>
+          <Input type="number" min={1} value={months} onChange={(e) => setMonths(e.target.value)} />
+          <label className="text-xs text-muted-foreground">Consignes affichées aux membres (facultatif)</label>
+          <Textarea value={instr} onChange={(e) => setInstr(e.target.value)} maxLength={1000} />
+          <Button size="sm">Enregistrer</Button>
+        </form>
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-lg font-bold">Numéros de paiement de l'Union</h2>
+        <ContentManager cfgKey="moyens" />
+      </section>
     </div>
   );
 }

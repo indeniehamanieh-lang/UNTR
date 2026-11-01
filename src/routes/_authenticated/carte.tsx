@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { PUBLIC_URL } from "@/lib/public-url";
-import logo from "@/assets/untrtci-logo.jpg.asset.json";
+import logo from "@/assets/untrtci-icon.asset.json";
 import { supabase } from "@/integrations/supabase/client";
 import { useMembership, fmtDate, STATUS_LABEL } from "@/lib/session";
 import { Loading, PageHeader } from "@/components/ui-states";

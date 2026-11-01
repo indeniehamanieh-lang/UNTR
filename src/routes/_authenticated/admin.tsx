@@ -10,14 +10,14 @@ import { Loading, Empty, ErrorBox, PageHeader } from "@/components/ui-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ContentManager, Alertes, Assistance, MembresAdmin, Dashboard, DossierFiles, GalerieAdmin } from "@/components/admin-panels";
+import { ContentManager, Alertes, Assistance, MembresAdmin, Dashboard, DossierFiles, GalerieAdmin, CotisationsAdmin } from "@/components/admin-panels";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Back-office — UNTRTCI" }, { name: "description", content: "Gestion des membres, contenus et rôles de l'UNTRTCI." }, { property: "og:title", content: "Back-office — UNTRTCI" }, { property: "og:description", content: "Administration de l'Union." }] }),
   component: Admin,
 });
 
-type TabKey = "accueil" | "adhesions" | "membres" | "formations" | "evenements" | "offres" | "documents" | "actus" | "reseaux" | "galerie" | "alertes" | "assistance" | "roles";
+type TabKey = "accueil" | "adhesions" | "membres" | "cotisations" | "formations" | "evenements" | "offres" | "documents" | "actus" | "reseaux" | "galerie" | "alertes" | "assistance" | "roles";
 
 type Status = "en_attente" | "validee" | "refusee" | "suspendue" | "expiree";
 
@@ -27,9 +27,27 @@ function Admin() {
   const [tab, setTab] = useState<TabKey>("accueil");
   if (IS_APP) return <Empty text="Le back-office n'est pas dans l'application. Utilisez le site web réservé aux responsables." />;
   if (roles.isLoading) return <Loading />;
-  if (!roles.data?.isStaff) return <Empty text="Accès réservé à l'équipe de l'Union." />;
+  if (!roles.data?.isStaff) {
+    return (
+      <div className="space-y-4">
+        <Empty text="Accès réservé à l'équipe de l'Union." />
+        <button
+          className="w-full text-center text-sm text-primary underline"
+          onClick={async () => {
+            const { data, error } = await supabase.rpc("claim_first_admin");
+            if (error) { toast.error(error.message); return; }
+            if (!data) { toast.error("Un super administrateur existe déjà."); return; }
+            toast.success("Vous êtes maintenant super administrateur.");
+            window.location.reload();
+          }}
+        >
+          Configuration initiale : devenir le premier super administrateur
+        </button>
+      </div>
+    );
+  }
   const tabs = [
-    ...(roles.data.isManager ? [{ k: "accueil", l: "Tableau de bord" }, { k: "adhesions", l: "Adhésions" }, { k: "membres", l: "Membres" }] : []),
+    ...(roles.data.isManager ? [{ k: "accueil", l: "Tableau de bord" }, { k: "adhesions", l: "Adhésions" }, { k: "membres", l: "Membres" }, { k: "cotisations", l: "Cotisations" }] : []),
     { k: "formations", l: "Formations" },
     { k: "evenements", l: "Événements" },
     { k: "offres", l: "Offres" },
@@ -54,6 +72,7 @@ function Admin() {
       {active === "membres" && <MembresAdmin />}
       {(active === "formations" || active === "evenements" || active === "offres" || active === "documents" || active === "reseaux") && <ContentManager key={active} cfgKey={active} />}
       {active === "galerie" && <GalerieAdmin />}
+      {active === "cotisations" && <CotisationsAdmin />}
       {active === "alertes" && <Alertes />}
       {active === "assistance" && <Assistance />}
       {active === "actus" && <Actus userId={user.id} />}
