@@ -78,3 +78,18 @@ Dépannage immédiat sans e-mail : `supabase/reset-mot-de-passe.sql`.
 ## Deux produits séparés
 - **APK (membres)** : ne contient plus aucun accès au back-office.
 - **Site web (responsables)** : adresse dans GitHub → Settings → Pages. Il ouvre directement la connexion, sans création de compte.
+
+---
+
+# MISE À JOUR 5 — Cotisations (paiement déclaré)
+1. Supabase → SQL Editor → collez `supabase/update-4.sql` → Run.
+2. Site back-office → onglet **Cotisations** : indiquez le montant, la durée et les numéros Mobile Money de l'Union.
+3. Dans l'app : bouton **Cotisation** sur l'accueil. Le membre paie, saisit la référence du SMS, joint une capture ; un responsable valide dans le back-office.
+
+# Devenir le premier super administrateur
+Ouvrez le SITE back-office (pas l'APK), connectez-vous avec votre compte, puis cliquez sur « Configuration initiale : devenir le premier super administrateur ». À faire en premier, avant que d'autres personnes ne connaissent l'adresse du site.
+
+---
+
+# BACK-OFFICE AUTONOME : backoffice-untrtci.html
+Un seul fichier, à ouvrir par double-clic sur ordinateur (Chrome ou Edge), avec internet. Aucun hébergement, aucun GitHub, aucun Lovable.
