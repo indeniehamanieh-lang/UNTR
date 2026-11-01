@@ -62,3 +62,19 @@ Supabase → SQL Editor → collez `supabase/update-2.sql` → Run (nouvelle lis
    `<h2>Votre code</h2><p>Code pour changer votre mot de passe : <b>{{ .Token }}</b></p>`
    puis Save.
 3. Back-office → onglets « Réseaux sociaux » et « Galerie ».
+
+---
+
+# MISE À JOUR 4 — E-mails, app des membres / site des responsables
+
+## E-mails (code de mot de passe oublié, confirmation)
+Supabase n'envoie des e-mails qu'aux membres de votre équipe Supabase, tant qu'un service d'e-mail personnel n'est pas branché.
+Supabase → Authentication → Emails → **SMTP Settings** → « Enable custom SMTP » :
+- Option Gmail : Host `smtp.gmail.com`, Port `465`, Username = l'adresse Gmail, Password = « mot de passe d'application » (Compte Google → Sécurité → Validation en 2 étapes → Mots de passe d'application), Sender = la même adresse Gmail.
+- Option Brevo : compte gratuit sur brevo.com → SMTP & API → reprenez l'hôte, le port, l'identifiant et la clé SMTP.
+Ensuite : Authentication → Emails → Templates → « Reset password » : ajoutez `{{ .Token }}` dans le texte → Save.
+Dépannage immédiat sans e-mail : `supabase/reset-mot-de-passe.sql`.
+
+## Deux produits séparés
+- **APK (membres)** : ne contient plus aucun accès au back-office.
+- **Site web (responsables)** : adresse dans GitHub → Settings → Pages. Il ouvre directement la connexion, sans création de compte.
