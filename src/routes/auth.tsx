@@ -1,3 +1,4 @@
+import { IS_ADMIN_SITE } from "@/lib/target";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
@@ -78,8 +79,8 @@ function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword(v.data);
         if (error) throw new Error("E-mail ou mot de passe incorrect.");
         // Sur ordinateur, le personnel arrive directement dans le back-office
-        let dest: "/accueil" | "/admin" = "/accueil";
-        if (window.matchMedia("(min-width: 1024px)").matches) {
+        let dest: "/accueil" | "/admin" = IS_ADMIN_SITE ? "/admin" : "/accueil";
+        if (!IS_ADMIN_SITE && window.matchMedia("(min-width: 1024px)").matches) {
           const { data: u } = await supabase.auth.getUser();
           if (u.user) {
             const { data: rs } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
@@ -123,7 +124,7 @@ function AuthPage() {
       )}
       <div className="mt-6 flex flex-col items-center gap-2 text-sm">
         {mode !== "signin" && <button className="text-primary" onClick={() => { setSent(null); navigate({ to: "/auth", search: { mode: "signin" } }); }}>J'ai déjà un compte</button>}
-        {mode !== "signup" && <button className="text-primary" onClick={() => { setSent(null); navigate({ to: "/auth", search: { mode: "signup" } }); }}>Créer un compte</button>}
+        {mode !== "signup" && !IS_ADMIN_SITE && <button className="text-primary" onClick={() => { setSent(null); navigate({ to: "/auth", search: { mode: "signup" } }); }}>Créer un compte</button>}
         {mode === "signin" && <button className="text-muted-foreground" onClick={() => { setStep("email"); navigate({ to: "/auth", search: { mode: "forgot" } }); }}>Mot de passe oublié ?</button>}
 
       </div>

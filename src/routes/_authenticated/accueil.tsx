@@ -1,3 +1,4 @@
+import { IS_APP } from "@/lib/target";
 import { SocialLinks, GalleryPreview } from "@/components/social-gallery";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -65,7 +66,7 @@ function Accueil() {
           <p className="text-xs text-muted-foreground">Bienvenue</p>
           <p className="font-display font-bold">UNTRTCI</p>
         </div>
-        {roles.data?.isStaff && (
+        {roles.data?.isStaff && !IS_APP && (
           <Button asChild size="sm" variant="outline"><Link to="/admin"><ShieldCheck className="h-4 w-4" />Admin</Link></Button>
         )}
       </div>

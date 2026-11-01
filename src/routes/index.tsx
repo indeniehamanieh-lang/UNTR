@@ -1,10 +1,14 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { IS_ADMIN_SITE } from "@/lib/target";
 import { BadgeCheck, GraduationCap, Briefcase, Users } from "lucide-react";
 import logo from "@/assets/untrtci-logo.jpg.asset.json";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/session";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    if (IS_ADMIN_SITE) throw redirect({ to: "/auth", search: { mode: "signin" } });
+  },
   head: () => ({
     meta: [
       { title: "UNTRTCI — Techniciens Radio et TV de Côte d'Ivoire" },

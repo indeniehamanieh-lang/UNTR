@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { shrinkImage } from "@/lib/image";
 
 export const Route = createFileRoute("/_authenticated/adhesion")({
   head: () => ({ meta: [{ title: "Adhésion — UNTRTCI" }, { name: "description", content: "Demande d'adhésion à l'UNTRTCI." }, { property: "og:title", content: "Adhésion — UNTRTCI" }, { property: "og:description", content: "Rejoignez l'Union." }] }),
@@ -21,8 +22,20 @@ const schema = z.object({
   prenoms: z.string().trim().min(1, "Prénoms requis").max(120),
   telephone: z.string().trim().regex(/^\+?[0-9 ]{6,20}$/, "Téléphone invalide"),
   ville: z.string().trim().min(1, "Ville requise").max(80),
+  employeur: z.string().trim().max(120).optional(),
   specialites: z.array(z.string()).min(1, "Choisissez au moins une spécialité").max(8),
 });
+
+function FilePick({ accept, capture, file, onFile }: { accept: string; capture: "user" | "environment"; file: File | null; onFile: (f: File | null) => void }) {
+  const btn = "cursor-pointer rounded-md border bg-card px-3 py-2 text-sm font-medium";
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className={btn}>📷 Prendre une photo<input type="file" accept="image/*" capture={capture} className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} /></label>
+      <label className={btn}>📁 Choisir un fichier<input type="file" accept={accept} className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} /></label>
+      {file && <span className="text-xs text-primary">✓ {file.name}</span>}
+    </div>
+  );
+}
 
 const STATUS_STYLE: Record<string, string> = {
   en_attente: "bg-accent text-accent-foreground",
@@ -40,12 +53,23 @@ function Adhesion() {
     queryKey: ["skills"],
     queryFn: async () => (await supabase.from("technician_skills").select("name").order("name")).data ?? [],
   });
-  const [f, setF] = useState({ nom: "", prenoms: "", telephone: "", ville: "", specialites: [] as string[], directory_consent: false });
+  const [f, setF] = useState({ nom: "", prenoms: "", telephone: "", ville: "", employeur: "", specialites: [] as string[], directory_consent: false });
   const [photo, setPhoto] = useState<File | null>(null);
+  const [idDoc, setIdDoc] = useState<File | null>(null);
+  const [idKind, setIdKind] = useState("cni");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const myDocs = useQuery({
+    queryKey: ["my-id-docs", user.id],
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any).from("member_documents").select("id, kind, created_at").eq("user_id", user.id);
+      return (data ?? []) as { id: string; kind: string; created_at: string }[];
+    },
+  });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (m.data) setF({ nom: m.data.nom, prenoms: m.data.prenoms, telephone: m.data.telephone, ville: m.data.ville, specialites: m.data.specialites, directory_consent: m.data.directory_consent });
+    if (m.data) setF({ nom: m.data.nom, prenoms: m.data.prenoms, telephone: m.data.telephone, ville: m.data.ville, employeur: (m.data as { employeur?: string | null }).employeur ?? "", specialites: m.data.specialites, directory_consent: m.data.directory_consent });
   }, [m.data]);
 
   if (m.isLoading) return <Loading />;
@@ -59,17 +83,33 @@ function Adhesion() {
     try {
       let photo_url = m.data?.photo_url ?? null;
       if (photo) {
-        if (photo.size > 2 * 1024 * 1024) throw new Error("Photo trop lourde (2 Mo max)");
-        const path = `${user.id}/photo-${Date.now()}.${photo.name.split(".").pop()}`;
-        const { error } = await supabase.storage.from("member-photos").upload(path, photo, { upsert: true });
+        const ph = await shrinkImage(photo, 900, 0.8);
+        if (ph.size > 2 * 1024 * 1024) throw new Error("Photo trop lourde (2 Mo max)");
+        const path = `${user.id}/photo-${Date.now()}.${ph.name.split(".").pop()}`;
+        const { error } = await supabase.storage.from("member-photos").upload(path, ph, { upsert: true });
         if (error) throw error;
         photo_url = path;
       }
-      const payload = { ...v.data, directory_consent: f.directory_consent, photo_url, user_id: user.id };
+      let idPath: string | null = null;
+      if (idDoc) {
+        const doc = await shrinkImage(idDoc, 1800, 0.85);
+        if (doc.size > 5 * 1024 * 1024) throw new Error("Pièce d'identité trop lourde (5 Mo max)");
+        idPath = `${user.id}/piece-${Date.now()}.${doc.name.split(".").pop() ?? "jpg"}`;
+        const up = await supabase.storage.from("id-documents").upload(idPath, doc);
+        if (up.error) throw up.error;
+      }
+      const payload = { ...v.data, employeur: v.data.employeur || null, directory_consent: f.directory_consent, photo_url, user_id: user.id };
       const { error } = m.data
         ? await supabase.from("memberships").update(payload).eq("id", m.data.id)
         : await supabase.from("memberships").insert(payload);
       if (error) throw error;
+      if (idPath) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const r = await (supabase as any).from("member_documents").insert({ user_id: user.id, kind: idKind, path: idPath });
+        if (r.error) throw r.error;
+        setIdDoc(null);
+        qc.invalidateQueries({ queryKey: ["my-id-docs"] });
+      }
       toast.success(m.data ? "Dossier mis à jour" : "Demande envoyée. Elle sera examinée par un responsable.");
       qc.invalidateQueries({ queryKey: ["membership"] });
     } catch (err) {
@@ -100,6 +140,7 @@ function Adhesion() {
         </div>
         <div className="space-y-1.5"><Label>Téléphone</Label><Input inputMode="tel" placeholder="+225 07 00 00 00 00" value={f.telephone} onChange={(e) => setF({ ...f, telephone: e.target.value })} /></div>
         <div className="space-y-1.5"><Label>Ville</Label><Input value={f.ville} onChange={(e) => setF({ ...f, ville: e.target.value })} /></div>
+        <div className="space-y-1.5"><Label>Employeur / média (facultatif)</Label><Input placeholder="Ex. RTI, France 24, web radio, indépendant…" value={f.employeur} onChange={(e) => setF({ ...f, employeur: e.target.value })} /></div>
         <div className="space-y-2">
           <Label>Spécialités</Label>
           <div className="flex flex-wrap gap-2">
@@ -115,7 +156,19 @@ function Adhesion() {
             })}
           </div>
         </div>
-        <div className="space-y-1.5"><Label>Photo (facultative, 2 Mo max)</Label><Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></div>
+        <div className="space-y-1.5"><Label>Photo de profil (facultative)</Label><FilePick accept="image/png,image/jpeg,image/webp" capture="user" file={photo} onFile={setPhoto} /></div>
+        <div className="space-y-1.5">
+          <Label>Pièce d'identité (photo ou PDF)</Label>
+          <select className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={idKind} onChange={(e) => setIdKind(e.target.value)}>
+            <option value="cni">Carte nationale d'identité</option>
+            <option value="passeport">Passeport</option>
+            <option value="permis">Permis de conduire</option>
+            <option value="autre">Autre pièce</option>
+          </select>
+          <FilePick accept="image/png,image/jpeg,image/webp,application/pdf" capture="environment" file={idDoc} onFile={setIdDoc} />
+          <p className="text-xs text-muted-foreground">Visible uniquement par les responsables de l'Union, jamais dans l'annuaire.</p>
+          {(myDocs.data?.length ?? 0) > 0 && <p className="text-xs font-medium text-primary">✓ {myDocs.data!.length} pièce(s) déjà envoyée(s)</p>}
+        </div>
         <label className="flex items-start gap-3 rounded-xl bg-secondary p-3 text-sm">
           <Checkbox checked={f.directory_consent} onCheckedChange={(v) => setF({ ...f, directory_consent: v === true })} />
           <span>J'accepte d'apparaître dans l'annuaire des membres (nom, ville, spécialités, téléphone). Modifiable à tout moment.</span>

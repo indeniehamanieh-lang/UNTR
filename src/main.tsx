@@ -26,7 +26,20 @@ function showError(title: string, detail?: unknown) {
 window.addEventListener("error", (e) => showError("Erreur de l'application", e.error ?? e.message));
 window.addEventListener("unhandledrejection", (e) => showError("Erreur de l'application", e.reason));
 
+function warnIfOldPhone() {
+  try {
+    if (CSS.supports("color", "color-mix(in srgb, red, blue)")) return;
+    const d = document.createElement("div");
+    d.style.cssText = "background:#fff3cd;color:#664d03;padding:12px 16px;font:14px sans-serif;border-bottom:2px solid #ffc107";
+    d.textContent = "Ce téléphone utilise un navigateur intégré trop ancien : l'application peut s'afficher mal. Mettez à jour « Android System WebView » et « Google Chrome » (Play Store ou AppGallery), puis rouvrez l'application.";
+    document.body.prepend(d);
+  } catch {
+    /* ignoré */
+  }
+}
+
 async function start() {
+  warnIfOldPhone();
   const url = (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) || SUPABASE_URL;
   const key = (import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string | undefined) || SUPABASE_KEY;
   if (!url.startsWith("http") || !key.startsWith("sb_") && !key.startsWith("eyJ")) {

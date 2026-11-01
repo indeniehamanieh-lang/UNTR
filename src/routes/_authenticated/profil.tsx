@@ -1,3 +1,4 @@
+import { IS_APP } from "@/lib/target";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -66,7 +67,7 @@ function Profil() {
         <div className="mt-2 flex flex-wrap gap-1">{roles.data?.roles.map((r) => <span key={r} className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-secondary-foreground">{ROLE_LABEL[r]}</span>)}</div>
       </div>
       <ul className="divide-y rounded-xl border bg-card">
-        {roles.data?.isStaff && (
+        {roles.data?.isStaff && !IS_APP && (
           <li><Link to="/admin" className="flex items-center gap-2 p-4 font-medium text-primary"><ShieldCheck className="h-4 w-4" /><span className="flex-1">Back-office</span><ChevronRight className="h-4 w-4" /></Link></li>
         )}
         {links.map((l) => (

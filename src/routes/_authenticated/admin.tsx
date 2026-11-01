@@ -1,3 +1,4 @@
+import { IS_APP } from "@/lib/target";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -9,14 +10,14 @@ import { Loading, Empty, ErrorBox, PageHeader } from "@/components/ui-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ContentManager, Alertes, Assistance, MembresAdmin, Dashboard } from "@/components/admin-panels";
+import { ContentManager, Alertes, Assistance, MembresAdmin, Dashboard, DossierFiles, GalerieAdmin } from "@/components/admin-panels";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Back-office — UNTRTCI" }, { name: "description", content: "Gestion des membres, contenus et rôles de l'UNTRTCI." }, { property: "og:title", content: "Back-office — UNTRTCI" }, { property: "og:description", content: "Administration de l'Union." }] }),
   component: Admin,
 });
 
-type TabKey = "accueil" | "adhesions" | "membres" | "formations" | "evenements" | "offres" | "documents" | "actus" | "alertes" | "assistance" | "roles";
+type TabKey = "accueil" | "adhesions" | "membres" | "formations" | "evenements" | "offres" | "documents" | "actus" | "reseaux" | "galerie" | "alertes" | "assistance" | "roles";
 
 type Status = "en_attente" | "validee" | "refusee" | "suspendue" | "expiree";
 
@@ -24,6 +25,7 @@ function Admin() {
   const { user } = Route.useRouteContext();
   const roles = useRoles(user.id);
   const [tab, setTab] = useState<TabKey>("accueil");
+  if (IS_APP) return <Empty text="Le back-office n'est pas dans l'application. Utilisez le site web réservé aux responsables." />;
   if (roles.isLoading) return <Loading />;
   if (!roles.data?.isStaff) return <Empty text="Accès réservé à l'équipe de l'Union." />;
   const tabs = [
@@ -33,6 +35,8 @@ function Admin() {
     { k: "offres", l: "Offres" },
     { k: "documents", l: "Documents" },
     { k: "actus", l: "Actualités" },
+    { k: "galerie", l: "Galerie" },
+    { k: "reseaux", l: "Réseaux sociaux" },
     { k: "alertes", l: "Alertes" },
     ...(roles.data.isManager ? [{ k: "assistance", l: "Assistance" }] : []),
     ...(roles.data.isSuper ? [{ k: "roles", l: "Rôles" }] : []),
@@ -48,7 +52,8 @@ function Admin() {
       {active === "accueil" && <Dashboard />}
       {active === "adhesions" && <Adhesions />}
       {active === "membres" && <MembresAdmin />}
-      {(active === "formations" || active === "evenements" || active === "offres" || active === "documents") && <ContentManager key={active} cfgKey={active} />}
+      {(active === "formations" || active === "evenements" || active === "offres" || active === "documents" || active === "reseaux") && <ContentManager key={active} cfgKey={active} />}
+      {active === "galerie" && <GalerieAdmin />}
       {active === "alertes" && <Alertes />}
       {active === "assistance" && <Assistance />}
       {active === "actus" && <Actus userId={user.id} />}
@@ -85,8 +90,9 @@ function Adhesions() {
           {q.data!.map((m) => (
             <li key={m.id} className="rounded-xl border bg-card p-4">
               <p className="font-semibold">{m.prenoms} {m.nom} {m.member_number && <span className="text-xs text-muted-foreground">· {m.member_number}</span>}</p>
-              <p className="text-sm text-muted-foreground">{m.ville} · {m.telephone} · {m.specialites.join(", ")}</p>
+              <p className="text-sm text-muted-foreground">{m.ville} · {m.telephone} · {(m as { employeur?: string | null }).employeur ? `${(m as { employeur?: string | null }).employeur} · ` : ""}{m.specialites.join(", ")}</p>
               <p className="text-xs text-muted-foreground">Déposé le {fmtDate(m.created_at)}</p>
+              <DossierFiles userId={m.user_id} photoUrl={m.photo_url} />
               {m.review_note && <p className="mt-1 text-xs">Note : {m.review_note}</p>}
               <div className="mt-3 flex flex-wrap gap-2">
                 {m.status !== "validee" && <Button size="sm" onClick={() => review(m.id, "validee")}>Valider</Button>}
