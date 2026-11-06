@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { shrinkImage } from "@/lib/image";
+import { toPdf } from "@/lib/pdf";
 
 export const Route = createFileRoute("/_authenticated/adhesion")({
   head: () => ({ meta: [{ title: "Adhésion — UNTRTCI" }, { name: "description", content: "Demande d'adhésion à l'UNTRTCI." }, { property: "og:title", content: "Adhésion — UNTRTCI" }, { property: "og:description", content: "Rejoignez l'Union." }] }),
@@ -22,6 +23,7 @@ const schema = z.object({
   prenoms: z.string().trim().min(1, "Prénoms requis").max(120),
   telephone: z.string().trim().regex(/^\+?[0-9 ]{6,20}$/, "Téléphone invalide"),
   ville: z.string().trim().min(1, "Ville requise").max(80),
+  pseudo: z.string().trim().min(2, "Pseudo : 2 caractères minimum").max(40).optional().or(z.literal("")),
   employeur: z.string().trim().max(120).optional(),
   specialites: z.array(z.string()).min(1, "Choisissez au moins une spécialité").max(8),
 });
@@ -53,9 +55,10 @@ function Adhesion() {
     queryKey: ["skills"],
     queryFn: async () => (await supabase.from("technician_skills").select("name").order("name")).data ?? [],
   });
-  const [f, setF] = useState({ nom: "", prenoms: "", telephone: "", ville: "", employeur: "", specialites: [] as string[], directory_consent: false });
+  const [f, setF] = useState({ nom: "", prenoms: "", telephone: "", ville: "", pseudo: "", employeur: "", specialites: [] as string[], directory_consent: false });
   const [photo, setPhoto] = useState<File | null>(null);
   const [idDoc, setIdDoc] = useState<File | null>(null);
+  const [idPhoto, setIdPhoto] = useState<File | null>(null);
   const [idKind, setIdKind] = useState("cni");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const myDocs = useQuery({
@@ -66,10 +69,22 @@ function Adhesion() {
       return (data ?? []) as { id: string; kind: string; created_at: string }[];
     },
   });
+  const fee = useQuery({
+    queryKey: ["adhesion-fee", user.id],
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = supabase as any;
+      const st = await db.from("payment_settings").select("adhesion_fee_xof").eq("id", 1).maybeSingle();
+      const py = await db.from("payments").select("status").eq("user_id", user.id).eq("purpose", "adhesion");
+      const list = (py.data ?? []) as { status: string }[];
+      const state = list.some((x) => x.status === "validee") ? "validee" : list.some((x) => x.status === "en_attente") ? "en_attente" : list.length ? "refusee" : "aucun";
+      return { amount: (st.data?.adhesion_fee_xof as number | undefined) ?? 5000, state };
+    },
+  });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (m.data) setF({ nom: m.data.nom, prenoms: m.data.prenoms, telephone: m.data.telephone, ville: m.data.ville, employeur: (m.data as { employeur?: string | null }).employeur ?? "", specialites: m.data.specialites, directory_consent: m.data.directory_consent });
+    if (m.data) setF({ nom: m.data.nom, prenoms: m.data.prenoms, telephone: m.data.telephone, ville: m.data.ville, pseudo: (m.data as { pseudo?: string | null }).pseudo ?? "", employeur: (m.data as { employeur?: string | null }).employeur ?? "", specialites: m.data.specialites, directory_consent: m.data.directory_consent });
   }, [m.data]);
 
   if (m.isLoading) return <Loading />;
@@ -79,8 +94,18 @@ function Adhesion() {
     e.preventDefault();
     const v = schema.safeParse(f);
     if (!v.success) { toast.error(v.error.issues[0]?.message ?? "Données invalides"); return; }
+    const hasIdPhoto = (myDocs.data ?? []).some((d) => d.kind === "photo_identite");
+    if (!hasIdPhoto && !idPhoto) { toast.error("La photo d'identité (PDF) est obligatoire."); return; }
     setBusy(true);
     try {
+      let idPhotoPath: string | null = null;
+      if (idPhoto) {
+        const pdf = await toPdf(idPhoto);
+        if (pdf.size > 5 * 1024 * 1024) throw new Error("Photo d'identité trop lourde (5 Mo max)");
+        idPhotoPath = `${user.id}/photo-identite-${Date.now()}.pdf`;
+        const up = await supabase.storage.from("id-documents").upload(idPhotoPath, pdf, { contentType: "application/pdf" });
+        if (up.error) throw up.error;
+      }
       let photo_url = m.data?.photo_url ?? null;
       if (photo) {
         const ph = await shrinkImage(photo, 900, 0.8);
@@ -98,11 +123,18 @@ function Adhesion() {
         const up = await supabase.storage.from("id-documents").upload(idPath, doc);
         if (up.error) throw up.error;
       }
-      const payload = { ...v.data, employeur: v.data.employeur || null, directory_consent: f.directory_consent, photo_url, user_id: user.id };
+      const payload = { ...v.data, pseudo: v.data.pseudo || null, employeur: v.data.employeur || null, directory_consent: f.directory_consent, photo_url, user_id: user.id };
       const { error } = m.data
         ? await supabase.from("memberships").update(payload).eq("id", m.data.id)
         : await supabase.from("memberships").insert(payload);
       if (error) throw error;
+      if (idPhotoPath) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const r0 = await (supabase as any).from("member_documents").insert({ user_id: user.id, kind: "photo_identite", path: idPhotoPath });
+        if (r0.error) throw r0.error;
+        setIdPhoto(null);
+        qc.invalidateQueries({ queryKey: ["my-id-docs"] });
+      }
       if (idPath) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const r = await (supabase as any).from("member_documents").insert({ user_id: user.id, kind: idKind, path: idPath });
@@ -133,6 +165,19 @@ function Adhesion() {
           {m.data.status === "validee" && <Button asChild size="sm" className="mt-3"><Link to="/carte">Voir ma carte</Link></Button>}
         </div>
       )}
+      <div className="mb-5 rounded-xl border-2 border-primary/40 bg-card p-4">
+        <p className="text-sm text-muted-foreground">Frais d'adhésion (obligatoires pour valider l'adhésion)</p>
+        <p className="text-3xl font-extrabold">{(fee.data?.amount ?? 5000).toLocaleString("fr-FR")} FCFA</p>
+        <p className="mt-1 text-sm font-medium">
+          {fee.data?.state === "validee" ? "✓ Frais d'adhésion payés et confirmés"
+            : fee.data?.state === "en_attente" ? "⏳ Paiement déclaré, en cours de vérification par un responsable"
+            : fee.data?.state === "refusee" ? "✗ Votre dernier paiement a été refusé : déclarez-en un nouveau"
+            : "À payer par Mobile Money, puis à déclarer"}
+        </p>
+        {fee.data?.state !== "validee" && fee.data?.state !== "en_attente" && (
+          <Button asChild size="sm" className="mt-3"><Link to="/cotisation">Payer mes frais d'adhésion</Link></Button>
+        )}
+      </div>
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5"><Label>Nom</Label><Input value={f.nom} disabled={!!locked} onChange={(e) => setF({ ...f, nom: e.target.value })} /></div>
@@ -140,6 +185,7 @@ function Adhesion() {
         </div>
         <div className="space-y-1.5"><Label>Téléphone</Label><Input inputMode="tel" placeholder="+225 07 00 00 00 00" value={f.telephone} onChange={(e) => setF({ ...f, telephone: e.target.value })} /></div>
         <div className="space-y-1.5"><Label>Ville</Label><Input value={f.ville} onChange={(e) => setF({ ...f, ville: e.target.value })} /></div>
+        <div className="space-y-1.5"><Label>Pseudo</Label><Input placeholder="Votre pseudo" maxLength={40} value={f.pseudo} onChange={(e) => setF({ ...f, pseudo: e.target.value })} /></div>
         <div className="space-y-1.5"><Label>Employeur / média (facultatif)</Label><Input placeholder="Ex. RTI, France 24, web radio, indépendant…" value={f.employeur} onChange={(e) => setF({ ...f, employeur: e.target.value })} /></div>
         <div className="space-y-2">
           <Label>Spécialités</Label>
@@ -156,9 +202,17 @@ function Adhesion() {
             })}
           </div>
         </div>
-        <div className="space-y-1.5"><Label>Photo de profil (facultative)</Label><FilePick accept="image/png,image/jpeg,image/webp" capture="user" file={photo} onFile={setPhoto} /></div>
+        <div className="space-y-1.5 rounded-xl border-2 border-primary/40 p-3">
+          <Label>Photo d'identité (obligatoire, format PDF)</Label>
+          <FilePick accept="application/pdf,image/png,image/jpeg,image/webp" capture="user" file={idPhoto} onFile={setIdPhoto} />
+          <p className="text-xs text-muted-foreground">Envoyez un fichier PDF. Si vous prenez une photo avec le téléphone, elle est convertie automatiquement en PDF.</p>
+          {(myDocs.data ?? []).some((d) => d.kind === "photo_identite")
+            ? <p className="text-xs font-medium text-primary">✓ Photo d'identité (PDF) déjà envoyée</p>
+            : <p className="text-xs font-medium text-destructive">Obligatoire : sans ce fichier, la demande ne peut pas être envoyée.</p>}
+        </div>
+        <div className="space-y-1.5"><Label>Photo pour la carte de membre (facultative)</Label><FilePick accept="image/png,image/jpeg,image/webp" capture="user" file={photo} onFile={setPhoto} /></div>
         <div className="space-y-1.5">
-          <Label>Pièce d'identité (photo ou PDF)</Label>
+          <Label>Pièce d'identité : CNI, passeport… (facultative)</Label>
           <select className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={idKind} onChange={(e) => setIdKind(e.target.value)}>
             <option value="cni">Carte nationale d'identité</option>
             <option value="passeport">Passeport</option>

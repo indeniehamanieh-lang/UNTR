@@ -295,7 +295,7 @@ export function Assistance() {
 
 /* ---------- Membres : liste complète, recherche, export ---------- */
 
-type Mem = { id: string; user_id: string; photo_url: string | null; nom: string; prenoms: string; telephone: string; ville: string; employeur: string | null; specialites: string[]; status: string; member_number: string | null; created_at: string };
+type Mem = { id: string; user_id: string; photo_url: string | null; pseudo: string | null; nom: string; prenoms: string; telephone: string; ville: string; employeur: string | null; specialites: string[]; status: string; member_number: string | null; created_at: string };
 
 export function MembresAdmin() {
   const [search, setSearch] = useState("");
@@ -311,8 +311,8 @@ export function MembresAdmin() {
 
   function csv() {
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-    const head = ["N° membre", "Nom", "Prénoms", "Téléphone", "Ville", "Employeur", "Spécialités", "Statut", "Date"];
-    const lines = rows.map((m) => [m.member_number ?? "", m.nom, m.prenoms, m.telephone, m.ville, m.employeur ?? "", m.specialites.join("; "), STATUS_LABEL[m.status as keyof typeof STATUS_LABEL] ?? m.status, fmtDate(m.created_at)].map((x) => esc(String(x))).join(","));
+    const head = ["N° membre", "Nom", "Prénoms", "Pseudo", "Téléphone", "Ville", "Employeur", "Spécialités", "Statut", "Date"];
+    const lines = rows.map((m) => [m.member_number ?? "", m.nom, m.prenoms, m.pseudo ?? "", m.telephone, m.ville, m.employeur ?? "", m.specialites.join("; "), STATUS_LABEL[m.status as keyof typeof STATUS_LABEL] ?? m.status, fmtDate(m.created_at)].map((x) => esc(String(x))).join(","));
     return [head.map(esc).join(","), ...lines].join("\n");
   }
   async function copy() {
@@ -336,7 +336,7 @@ export function MembresAdmin() {
         <ul className="space-y-2">
           {rows.map((m) => (
             <li key={m.id} className="rounded-xl border bg-card p-3">
-              <p className="font-semibold">{m.prenoms} {m.nom} {m.member_number && <span className="text-xs text-muted-foreground">· {m.member_number}</span>}</p>
+              <p className="font-semibold">{m.prenoms} {m.nom} {m.pseudo ? `(${m.pseudo}) ` : ""}{m.member_number && <span className="text-xs text-muted-foreground">· {m.member_number}</span>}</p>
               <p className="text-sm text-muted-foreground">{m.ville} · {m.telephone} · {STATUS_LABEL[m.status as keyof typeof STATUS_LABEL] ?? m.status}</p>
               <DossierFiles userId={m.user_id} photoUrl={m.photo_url} />
             </li>
@@ -403,7 +403,7 @@ export function DossierFiles({ userId, photoUrl }: { userId: string; photoUrl: s
         if (r.data?.signedUrl) out.push({ label: "Photo", url: r.data.signedUrl, image: true });
       }
       const docs = await db.from("member_documents").select("*").eq("user_id", userId).order("created_at", { ascending: false });
-      const names: Record<string, string> = { cni: "Carte d'identité", passeport: "Passeport", permis: "Permis", autre: "Autre pièce" };
+      const names: Record<string, string> = { photo_identite: "Photo d'identité (PDF)", cni: "Carte d'identité", passeport: "Passeport", permis: "Permis", autre: "Autre pièce" };
       for (const d of (docs.data ?? []) as { kind: string; path: string }[]) {
         const r = await supabase.storage.from("id-documents").createSignedUrl(d.path, 300);
         if (r.data?.signedUrl) out.push({ label: names[d.kind] ?? d.kind, url: r.data.signedUrl, image: !d.path.toLowerCase().endsWith(".pdf") });
@@ -511,14 +511,12 @@ export function GalerieAdmin() {
 
 /* ---------- Cotisations : réglages et validation des paiements ---------- */
 
-type PayRow = { id: string; user_id: string; amount_xof: number; provider: string; reference: string; proof_path: string | null; status: string; note: string | null; created_at: string };
+type PayRow = { id: string; user_id: string; purpose: string; months: number | null; valid_until: string | null; amount_xof: number; provider: string; reference: string; proof_path: string | null; status: string; note: string | null; created_at: string };
 
 export function CotisationsAdmin() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState("en_attente");
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [amount, setAmount] = useState("");
-  const [months, setMonths] = useState("");
   const [instr, setInstr] = useState("");
   const [loaded, setLoaded] = useState(false);
 
@@ -527,17 +525,15 @@ export function CotisationsAdmin() {
     queryFn: async () => {
       const { data, error } = await db.from("payment_settings").select("*").eq("id", 1).maybeSingle();
       if (error) throw error;
-      if (data && !loaded) { setAmount(String(data.amount_xof)); setMonths(String(data.duration_months)); setInstr(data.instructions ?? ""); setLoaded(true); }
+      if (data && !loaded) { setInstr(data.instructions ?? ""); setLoaded(true); }
       return data;
     },
   });
   async function saveSettings(e: React.FormEvent) {
     e.preventDefault();
-    const a = Number(amount), m = Number(months);
-    if (!Number.isFinite(a) || a < 0 || !Number.isFinite(m) || m < 1) { toast.error("Montant ou durée invalide"); return; }
-    const { error } = await db.from("payment_settings").upsert({ id: 1, amount_xof: Math.round(a), duration_months: Math.round(m), instructions: instr.trim() || null, updated_at: new Date().toISOString() });
+    const { error } = await db.from("payment_settings").upsert({ id: 1, instructions: instr.trim() || null, updated_at: new Date().toISOString() });
     if (error) { toast.error(error.message); return; }
-    toast.success("Réglages enregistrés");
+    toast.success("Consignes enregistrées");
     qc.invalidateQueries({ queryKey: ["cotisation-info"] });
   }
 
@@ -578,7 +574,7 @@ export function CotisationsAdmin() {
             {q.data!.map((p) => (
               <li key={p.id} className="space-y-2 rounded-xl border bg-card p-4">
                 <p className="font-semibold">{p.who}</p>
-                <p className="text-sm">{p.amount_xof.toLocaleString("fr-FR")} FCFA · {p.provider} · Réf. <b>{p.reference}</b></p>
+                <p className="text-sm"><b>{p.purpose === "cotisation" ? `Cotisation ${p.months ?? ""} mois` : "Frais d'adhésion"}</b> · {p.amount_xof.toLocaleString("fr-FR")} FCFA · {p.provider} · Réf. <b>{p.reference}</b></p>
                 <p className="text-xs text-muted-foreground">Déclaré le {fmtDate(p.created_at)}</p>
                 {p.proof_path && <Button size="sm" variant="outline" onClick={() => openProof(p.proof_path!)}>Voir la capture</Button>}
                 {p.status === "en_attente" && (
@@ -597,12 +593,10 @@ export function CotisationsAdmin() {
         )}
       </section>
       <section className="space-y-2">
-        <h2 className="text-lg font-bold">Montant de la cotisation</h2>
+        <h2 className="text-lg font-bold">Montants</h2>
         <form onSubmit={saveSettings} className="space-y-2 rounded-xl border bg-card p-4">
-          <label className="text-xs text-muted-foreground">Montant en FCFA</label>
-          <Input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <label className="text-xs text-muted-foreground">Durée de validité (en mois)</label>
-          <Input type="number" min={1} value={months} onChange={(e) => setMonths(e.target.value)} />
+          <p className="text-sm">Frais d'adhésion : <b>5 000 FCFA</b> (une seule fois, obligatoires pour valider une adhésion).</p>
+          <p className="text-sm">Cotisation : <b>1 000 FCFA par mois</b>, soit <b>12 000 FCFA l'année</b> (indépendante de l'adhésion).</p>
           <label className="text-xs text-muted-foreground">Consignes affichées aux membres (facultatif)</label>
           <Textarea value={instr} onChange={(e) => setInstr(e.target.value)} maxLength={1000} />
           <Button size="sm">Enregistrer</Button>
@@ -612,6 +606,28 @@ export function CotisationsAdmin() {
         <h2 className="text-lg font-bold">Numéros de paiement de l'Union</h2>
         <ContentManager cfgKey="moyens" />
       </section>
+    </div>
+  );
+}
+
+/* ---------- Pièces obligatoires d'un dossier : photo d'identité PDF et frais d'adhésion ---------- */
+
+export function Checklist({ userId }: { userId: string }) {
+  const q = useQuery({
+    queryKey: ["checklist", userId],
+    queryFn: async () => {
+      const d = await db.from("member_documents").select("id").eq("user_id", userId).eq("kind", "photo_identite");
+      const p = await db.from("payments").select("status").eq("user_id", userId).eq("purpose", "adhesion");
+      const list = (p.data ?? []) as { status: string }[];
+      return { photo: (d.data ?? []).length > 0, fee: list.some((x) => x.status === "validee"), feePending: list.some((x) => x.status === "en_attente") };
+    },
+  });
+  if (!q.data) return null;
+  const tag = (ok: boolean, label: string) => <span className={`rounded-full px-2 py-0.5 text-xs ${ok ? "bg-secondary text-primary" : "bg-destructive/10 text-destructive"}`}>{ok ? "✓" : "✗"} {label}</span>;
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {tag(q.data.photo, "Photo d'identité (PDF)")}
+      {tag(q.data.fee, q.data.feePending && !q.data.fee ? "Frais 5 000 FCFA (à vérifier)" : "Frais 5 000 FCFA")}
     </div>
   );
 }

@@ -10,7 +10,7 @@ import { Loading, Empty, ErrorBox, PageHeader } from "@/components/ui-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ContentManager, Alertes, Assistance, MembresAdmin, Dashboard, DossierFiles, GalerieAdmin, CotisationsAdmin } from "@/components/admin-panels";
+import { ContentManager, Alertes, Assistance, MembresAdmin, Dashboard, DossierFiles, GalerieAdmin, CotisationsAdmin, Checklist } from "@/components/admin-panels";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Back-office — UNTRTCI" }, { name: "description", content: "Gestion des membres, contenus et rôles de l'UNTRTCI." }, { property: "og:title", content: "Back-office — UNTRTCI" }, { property: "og:description", content: "Administration de l'Union." }] }),
@@ -108,9 +108,10 @@ function Adhesions() {
         <ul className="space-y-2">
           {q.data!.map((m) => (
             <li key={m.id} className="rounded-xl border bg-card p-4">
-              <p className="font-semibold">{m.prenoms} {m.nom} {m.member_number && <span className="text-xs text-muted-foreground">· {m.member_number}</span>}</p>
+              <p className="font-semibold">{m.prenoms} {m.nom}{(m as { pseudo?: string | null }).pseudo ? ` (${(m as { pseudo?: string | null }).pseudo})` : ""} {m.member_number && <span className="text-xs text-muted-foreground">· {m.member_number}</span>}</p>
               <p className="text-sm text-muted-foreground">{m.ville} · {m.telephone} · {(m as { employeur?: string | null }).employeur ? `${(m as { employeur?: string | null }).employeur} · ` : ""}{m.specialites.join(", ")}</p>
               <p className="text-xs text-muted-foreground">Déposé le {fmtDate(m.created_at)}</p>
+              <Checklist userId={m.user_id} />
               <DossierFiles userId={m.user_id} photoUrl={m.photo_url} />
               {m.review_note && <p className="mt-1 text-xs">Note : {m.review_note}</p>}
               <div className="mt-3 flex flex-wrap gap-2">

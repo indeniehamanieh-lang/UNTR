@@ -53,7 +53,7 @@ function Accueil() {
   const quick = [
     { to: "/carte", label: "Ma carte", icon: BadgeCheck },
     { to: "/adhesion", label: "Adhésion", icon: ClipboardList },
-    { to: "/cotisation", label: "Cotisation", icon: Wallet },
+    { to: "/cotisation", label: "Paiement", icon: Wallet },
     { to: "/offres", label: "Offres", icon: Briefcase },
     { to: "/documents", label: "Documents", icon: FileText },
     { to: "/assistance", label: "Assistance", icon: LifeBuoy },

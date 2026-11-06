@@ -216,6 +216,7 @@ export type Database = {
           validated_at: string | null
           ville: string
           employeur: string | null
+          pseudo: string | null
         }
         Insert: {
           card_revoked?: boolean
@@ -237,6 +238,7 @@ export type Database = {
           validated_at?: string | null
           ville: string
           employeur?: string | null
+          pseudo?: string | null
         }
         Update: {
           card_revoked?: boolean
@@ -258,6 +260,7 @@ export type Database = {
           validated_at?: string | null
           ville?: string
           employeur?: string | null
+          pseudo?: string | null
         }
         Relationships: []
       }
