@@ -93,3 +93,15 @@ Ouvrez le SITE back-office (pas l'APK), connectez-vous avec votre compte, puis c
 
 # BACK-OFFICE AUTONOME : backoffice-untrtci.html
 Un seul fichier, à ouvrir par double-clic sur ordinateur (Chrome ou Edge), avec internet. Aucun hébergement, aucun GitHub, aucun Lovable.
+
+---
+
+# MISE À JOUR 6 — Pseudo, photo d'identité PDF, frais d'adhésion 5 000 FCFA, « Ingénieur des médias »
+1. Supabase → SQL Editor → collez `supabase/update-5.sql` → Run (après update-1 à update-4).
+2. Remplacez le fichier `backoffice-untrtci.html` par la nouvelle version.
+3. Mettez le dossier sur GitHub et réinstallez l'APK.
+
+---
+
+# MISE À JOUR 7 — Cotisation 1 000 FCFA / mois (12 000 FCFA / an)
+Supabase → SQL Editor → collez `supabase/update-6.sql` → Run (après update-5).
