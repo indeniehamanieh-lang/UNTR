@@ -38,6 +38,7 @@ function AuthPage() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
+  const [pseudo, setPseudo] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -71,7 +72,7 @@ function AuthPage() {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email: v.data.email, password: v.data.password,
-          options: { emailRedirectTo: `${PUBLIC_URL}/#/accueil`, data: { full_name: name.trim().slice(0, 120) } },
+          options: { emailRedirectTo: `${PUBLIC_URL}/#/accueil`, data: { full_name: name.trim().slice(0, 120), pseudo: pseudo.trim().slice(0, 40) } },
         });
         if (error) throw error;
         setSent("Compte créé. Vérifiez votre boîte e-mail pour confirmer votre adresse.");
@@ -108,6 +109,7 @@ function AuthPage() {
         <form onSubmit={submit} className="mt-6 space-y-4">
           {mode === "signup" && (
             <div className="space-y-1.5"><Label>Nom complet</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} /></div>
+            <div className="space-y-1.5"><Label>Pseudo</Label><Input placeholder="Votre pseudo" value={pseudo} onChange={(e) => setPseudo(e.target.value)} maxLength={40} /></div>
           )}
           <div className="space-y-1.5"><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
           {mode === "forgot" && step === "code" && (

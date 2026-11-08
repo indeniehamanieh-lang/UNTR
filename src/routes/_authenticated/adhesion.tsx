@@ -55,7 +55,7 @@ function Adhesion() {
     queryKey: ["skills"],
     queryFn: async () => (await supabase.from("technician_skills").select("name").order("name")).data ?? [],
   });
-  const [f, setF] = useState({ nom: "", prenoms: "", telephone: "", ville: "", pseudo: "", employeur: "", specialites: [] as string[], directory_consent: false });
+  const [f, setF] = useState({ nom: "", prenoms: "", telephone: "", ville: "", pseudo: String((user as { user_metadata?: { pseudo?: string } }).user_metadata?.pseudo ?? ""), employeur: "", specialites: [] as string[], directory_consent: false });
   const [photo, setPhoto] = useState<File | null>(null);
   const [idDoc, setIdDoc] = useState<File | null>(null);
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
