@@ -108,8 +108,10 @@ function AuthPage() {
       ) : (
         <form onSubmit={submit} className="mt-6 space-y-4">
           {mode === "signup" && (
+            <>
             <div className="space-y-1.5"><Label>Nom complet</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} /></div>
             <div className="space-y-1.5"><Label>Pseudo</Label><Input placeholder="Votre pseudo" value={pseudo} onChange={(e) => setPseudo(e.target.value)} maxLength={40} /></div>
+            </>
           )}
           <div className="space-y-1.5"><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
           {mode === "forgot" && step === "code" && (
